@@ -3,14 +3,81 @@ const qz = require("qz-tray");
 const ws = require('ws')
 var rs = require('jsrsasign');
 var rsu = require('jsrsasign-util');
-
-
+const { jsPDF } = require("jspdf"); 
+const fs = require('fs');
+const multer = require('multer');
+const url = require('url');
+var bodyParser = require('body-parser');
 
 
 const app = express(); 
-app.use(express.json())
+//app.use(express.json())
+app.use(bodyParser.json({limit: '50mb'}));
+app.use(bodyParser.urlencoded({ extended: false })) // for form data
+
+
+
+
 
 const PORT = 3000; 
+
+
+
+const upload = multer({
+    storage: multer.diskStorage({
+        destination: async function (req, file, cb) {
+             cb(null, "uploads")
+        },
+        filename: function (req, file, cb) {
+            cb(null, "logo" + ".png");
+        }
+    })
+}).single("logo")
+
+
+
+app.post('/upload', upload, async (req, res)=>{ 
+    // const fileUrl = __dirname + "/uploads/pdf.pdf";
+    // let file = url.pathToFileURL(fileUrl);
+
+    // let config = await qz.configs.create('EPSON TM-T82X-S/A');
+    //         await qz.print(config, [{
+    //                 type: 'pixel',
+    //                 format: 'pdf',
+    //                 data: 'http://127.0.0.1:3000/'+ file
+    //             }]);
+
+    res.send('hh'); 
+ }); 
+
+ app.get('/test', async (req, res)=>{ 
+    const fileUrl = __dirname + "/uploads/pdf.pdf";
+
+    let file = url.pathToFileURL(fileUrl);
+
+    console.log(file);
+
+    res.send("Hello");
+    
+
+ }); 
+ 
+
+
+ app.post('/base64', async (req, res)=>{ 
+    
+
+    let config = await qz.configs.create('EPSON TM-T82X-S/A');
+            await qz.print(config, [{
+                type: 'raw', format: 'command', flavor: 'base64',
+                data: req.body.img,
+                }]);
+   
+   res.send("Hello");
+    
+
+ }); 
+ 
 
 app.listen(PORT, '0.0.0.0', async (error) =>{ 
    await connectPrinter();
@@ -34,12 +101,28 @@ app.get('/printers', async (req, res)=>{
 
 
 app.get('/print', async (req, res)=>{ 
-    let config = await qz.configs.create('EPSON TM-T82 Receipt');
+    let config = await qz.configs.create('EPSON TM-T82X-S/A');
     await qz.print(config, [{
             type: 'pixel',
             format: 'html',
             flavor: 'plain',
             data: '<h1>Hello JavaScript!</h1>'
+        }]);
+
+    res.send("Wait"); 
+}); 
+
+
+app.post('/printMe', async (req, res)=>{ 
+    let msg = req.body.msg;
+    let printerName = req.body.printerName;
+
+    let config = await qz.configs.create("EPSON TM-T82X-S/A");
+    await qz.print(config, [{
+            type: 'raw',
+            format: 'html',
+            flavor: 'plain',
+            data: msg
         }]);
 
     res.send("Wait"); 
@@ -62,12 +145,127 @@ app.post('/print2', async (req, res)=>{
 
 app.post('/print4', async (req, res)=>{ 
    let msg = req.body.msg;
-   let config = await qz.configs.create('Everycom-58-Series');
-   await qz.print(config, [msg]);
+   let printerName = req.body.printerName;
+   let config = await qz.configs.create(printerName);
+   await qz.print(config, [
+   //'\x1B' + '\x40',
+     msg, 
+    '\x0A',
+    '\x0A',
+    '\x0A',
+    '\x0A',
+    '\x0A',
+    '\x1D' + '\x56'  + '\x00'
+]);
    
 
    res.send("Wait"); 
 }); 
+
+app.get("/esc", async (req,res) => {
+    var config = qz.configs.create("EPSON TM-T82X-S/A");
+
+
+
+    
+var data = [
+   { type: 'raw', format: 'image', flavor: 'file', data: 'https://via.placeholder.com/120x120&text=image1', options: { language: "ESCPOS", dotDensity: 'double' } },
+  
+   '\x1B' + '\x40',          // init
+   '\x1B' + '\x61' + '\x31', // center align
+   'Canastota, NY  13032' + '\x0A',
+   '\x0A',                   // line break
+   'http://qz.io' + '\x0A',     // text and line break
+   '\x0A',                   // line break
+   '\x0A',                   // line break
+   'May 18, 2016 10:30 AM' + '\x0A',
+   '\x0A',                   // line break
+   '\x0A',                   // line break    
+   '\x0A',
+   'Transaction # 123456 Register: 3' + '\x0A',
+   '\x0A',
+   '\x0A',
+   '\x0A',
+   '\x1B' + '\x61' + '\x30', // left align
+   'Baklava (Qty 4)       9.00' + '\x1B' + '\x74' + '\x13' + '\xAA', //print special char symbol after numeric
+   '\x0A',
+   'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX' + '\x0A',       
+   '\x1B' + '\x45' + '\x0D', // bold on
+   'Here\'s some bold text!',
+   '\x1B' + '\x45' + '\x0A', // bold off
+   '\x0A' + '\x0A',
+   '\x1B' + '\x61' + '\x32', // right align
+   '\x1B' + '\x21' + '\x30', // em mode on
+   'DRINK ME',
+   '\x1B' + '\x21' + '\x0A' + '\x1B' + '\x45' + '\x0A', // em mode off
+   '\x0A' + '\x0A',
+   '\x1B' + '\x61' + '\x30', // left align
+   '------------------------------------------' + '\x0A',
+   '\x1B' + '\x4D' + '\x31', // small text
+   'EAT ME' + '\x0A',
+   '\x1B' + '\x4D' + '\x30', // normal text
+   '------------------------------------------' + '\x0A',
+   'normal text',
+   '\x1B' + '\x61' + '\x30', // left align
+   '\x0A' + '\x0A' + '\x0A' + '\x0A' + '\x0A' + '\x0A' + '\x0A',
+   '\x1B' + '\x69',          // cut paper (old syntax)
+// '\x1D' + '\x56'  + '\x00' // full cut (new syntax)
+// '\x1D' + '\x56'  + '\x30' // full cut (new syntax)
+// '\x1D' + '\x56'  + '\x01' // partial cut (new syntax)
+// '\x1D' + '\x56'  + '\x31' // partial cut (new syntax)
+   '\x10' + '\x14' + '\x01' + '\x00' + '\x05',  // Generate Pulse to kick-out cash drawer**
+                                                // **for legacy drawer cable CD-005A.  Research before using.
+// Star TSP100-series kick-out ONLY
+// '\x1B' + '\x70' + '\x00' /* drawer 1 */ + '\xC8' + '\xC8' + '\x1B' + '\x1F' + '\x70' + '\x03' + '\x00',
+// '\x1B' + '\x70' + '\x01' /* drawer 2 */ + '\xC8' + '\xC8' + '\x1B' + '\x1F' + '\x70' + '\x03' + '\x00',
+   ];
+let  imgB= `
+  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
+ `
+
+ b = {
+    type: 'raw', format: 'command', flavor: 'base64',
+    data: imgB, options: { language: "ESCPOS", dotDensity: 'double' }
+}
+
+img = { type: 'raw', format: 'image', flavor: 'file', data: 'http://127.0.0.1:3000/file', options: { language: "ESCPOS", dotDensity: 'double' } };
+
+txt1 =  '\x1B' + '\x4D' + '\x30', // normal text
+txt2 = '------------------------------------------' + '\x0A',
+text3 ='normal text',
+paperCut =    '\x1B' + '\x69',          // cut paper (old syntax)
+qz.print(config, [
+    img,
+    '\x1B' + '\x4D' + '\x30',
+    'normal text',
+   '\x1B' + '\x61' + '\x30', // left align
+   '\x0A' + '\x0A' + '\x0A' + '\x0A' + '\x0A' + '\x0A' + '\x0A',
+   '\x1B' + '\x69', 
+    '\x10' + '\x14' + '\x01' + '\x00' + '\x05',
+]).catch(function(e) { console.error(e); });
+
+res.send("Hello");
+});
+
+
+app.post('/pdf', async (req, res) => {
+
+// Default export is a4 paper, portrait, using millimeters for units
+const doc = new jsPDF();
+
+doc.text("Hello world!", 10, 10);
+//doc.save("a4.pdf"); 
+
+var data =fs.readFileSync('./a4.pdf');
+
+
+let config = await qz.configs.create('EPSON TM-T82X-S/A');
+
+await qz.print(config, [doc]);
+
+res.send("Wait"); 
+
+});
 
 
 app.post('/print3', async (req, res)=>{ 
@@ -217,32 +415,66 @@ Halo
 async function connectPrinter() {
 
    qz.security.setCertificatePromise(function (resolve, reject) {
-
-      cert = `-----BEGIN CERTIFICATE-----
-      MIID/TCCAuWgAwIBAgIUF/A2Eb/OjEs81Hconpazd+XPQVowDQYJKoZIhvcNAQEL
-      BQAwgYwxCzAJBgNVBAYTAklOMQwwCgYDVQQIDANERUwxDjAMBgNVBAcMBU5vaWRh
-      MRcwFQYDVQQKDA5RdWV1ZWJ1c3RlciBDbzELMAkGA1UECwwCUUIxDDAKBgNVBAMM
-      A0RQRDErMCkGCSqGSIb3DQEJARYcaHVzc2Fpbi5tZWhkaUBxdWV1ZWJ1c3Rlci5j
-      bzAgFw0yNDAxMzEwNzExMTJaGA8yMDU1MDcyNjA3MTExMlowgYwxCzAJBgNVBAYT
-      AklOMQwwCgYDVQQIDANERUwxDjAMBgNVBAcMBU5vaWRhMRcwFQYDVQQKDA5RdWV1
-      ZWJ1c3RlciBDbzELMAkGA1UECwwCUUIxDDAKBgNVBAMMA0RQRDErMCkGCSqGSIb3
-      DQEJARYcaHVzc2Fpbi5tZWhkaUBxdWV1ZWJ1c3Rlci5jbzCCASIwDQYJKoZIhvcN
-      AQEBBQADggEPADCCAQoCggEBAK0P81cXseoUYh69kgPnDEGhdHLcGI+UopRbqDYV
-      m2NfORK5uXEWMcLmiYK9VbJmQAEPtQcaEbfvgLgCaIn0lCjPzQiKiOsFjPV7X219
-      YxcaQf5AZHVNU8cqMyGDhH5x4V/u8nGDnhMWZzs1MmfaWew3tmjEAyR06R6qpq27
-      GXXm1QoTlP/byxQ6XFqnWbS1PSALCI9gckAaXQEVxc4Ykejq+WFn/DoEimj2fs+O
-      WrHydRl3vFgoSzPZlS9WulwLsbiCtsMHeOPuxtdKbNqqclQQkxf3a3f1ig1UYQ/P
-      CUfZpu1QKMgTkpMtaxSaHoXH0xjF1wx4MMpiWs4OxJZLYnUCAwEAAaNTMFEwHQYD
-      VR0OBBYEFHJ4FY13AuYzAC4pY6N8SV37IJahMB8GA1UdIwQYMBaAFHJ4FY13AuYz
-      AC4pY6N8SV37IJahMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEB
-      AEOeATpA8fFH5HNzQT5ZMgHgv/Ztx18gxy4ai+hFiw0DNYAjqzpAEtaB5zauTRLN
-      bTs4iUBRexACjX9A5PKXaGCGNtIfk9S0wtRzaFCUtZxDtJ4Y0eQDwrNZGOdpzrD6
-      O6zrAgfnyZKaB9puR7/cP+bEBt2iLN0hhor60x27ZRgl/uOecocpiWpvbQRIj4Et
-      UwE6Uy1Eu0Ii3ml1Ma0Esq9MI8vH8FJfwOmptqVsHPQGtCDltVzyz7JAzJ2HvHkd
-      Q0Jbf/Xx+PX052nrGh4KzMl4CzmIrMXAejs59yEq1sfAXRBPv1FgEEglP/edIP+y
-      fSDq64hAmsWkoW7Et5bOCBo=
-      -----END CERTIFICATE-----`
-      resolve(cert);
+    resolve("-----BEGIN CERTIFICATE-----\n" +
+    "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\n" +
+    "-----END CERTIFICATE-----\n" +
+    "--START INTERMEDIATE CERT--\n" +
+    "-----BEGIN CERTIFICATE-----\n" +
+    "MIIFEjCCA/qgAwIBAgICEAAwDQYJKoZIhvcNAQELBQAwgawxCzAJBgNVBAYTAlVT\n" +
+    "MQswCQYDVQQIDAJOWTESMBAGA1UEBwwJQ2FuYXN0b3RhMRswGQYDVQQKDBJRWiBJ\n" +
+    "bmR1c3RyaWVzLCBMTEMxGzAZBgNVBAsMElFaIEluZHVzdHJpZXMsIExMQzEZMBcG\n" +
+    "A1UEAwwQcXppbmR1c3RyaWVzLmNvbTEnMCUGCSqGSIb3DQEJARYYc3VwcG9ydEBx\n" +
+    "emluZHVzdHJpZXMuY29tMB4XDTE1MDMwMjAwNTAxOFoXDTM1MDMwMjAwNTAxOFow\n" +
+    "gZgxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJOWTEbMBkGA1UECgwSUVogSW5kdXN0\n" +
+    "cmllcywgTExDMRswGQYDVQQLDBJRWiBJbmR1c3RyaWVzLCBMTEMxGTAXBgNVBAMM\n" +
+    "EHF6aW5kdXN0cmllcy5jb20xJzAlBgkqhkiG9w0BCQEWGHN1cHBvcnRAcXppbmR1\n" +
+    "c3RyaWVzLmNvbTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBANTDgNLU\n" +
+    "iohl/rQoZ2bTMHVEk1mA020LYhgfWjO0+GsLlbg5SvWVFWkv4ZgffuVRXLHrwz1H\n" +
+    "YpMyo+Zh8ksJF9ssJWCwQGO5ciM6dmoryyB0VZHGY1blewdMuxieXP7Kr6XD3GRM\n" +
+    "GAhEwTxjUzI3ksuRunX4IcnRXKYkg5pjs4nLEhXtIZWDLiXPUsyUAEq1U1qdL1AH\n" +
+    "EtdK/L3zLATnhPB6ZiM+HzNG4aAPynSA38fpeeZ4R0tINMpFThwNgGUsxYKsP9kh\n" +
+    "0gxGl8YHL6ZzC7BC8FXIB/0Wteng0+XLAVto56Pyxt7BdxtNVuVNNXgkCi9tMqVX\n" +
+    "xOk3oIvODDt0UoQUZ/umUuoMuOLekYUpZVk4utCqXXlB4mVfS5/zWB6nVxFX8Io1\n" +
+    "9FOiDLTwZVtBmzmeikzb6o1QLp9F2TAvlf8+DIGDOo0DpPQUtOUyLPCh5hBaDGFE\n" +
+    "ZhE56qPCBiQIc4T2klWX/80C5NZnd/tJNxjyUyk7bjdDzhzT10CGRAsqxAnsjvMD\n" +
+    "2KcMf3oXN4PNgyfpbfq2ipxJ1u777Gpbzyf0xoKwH9FYigmqfRH2N2pEdiYawKrX\n" +
+    "6pyXzGM4cvQ5X1Yxf2x/+xdTLdVaLnZgwrdqwFYmDejGAldXlYDl3jbBHVM1v+uY\n" +
+    "5ItGTjk+3vLrxmvGy5XFVG+8fF/xaVfo5TW5AgMBAAGjUDBOMB0GA1UdDgQWBBSQ\n" +
+    "plC3hNS56l/yBYQTeEXoqXVUXDAfBgNVHSMEGDAWgBQDRcZNwPqOqQvagw9BpW0S\n" +
+    "BkOpXjAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAJIO8SiNr9jpLQ\n" +
+    "eUsFUmbueoxyI5L+P5eV92ceVOJ2tAlBA13vzF1NWlpSlrMmQcVUE/K4D01qtr0k\n" +
+    "gDs6LUHvj2XXLpyEogitbBgipkQpwCTJVfC9bWYBwEotC7Y8mVjjEV7uXAT71GKT\n" +
+    "x8XlB9maf+BTZGgyoulA5pTYJ++7s/xX9gzSWCa+eXGcjguBtYYXaAjjAqFGRAvu\n" +
+    "pz1yrDWcA6H94HeErJKUXBakS0Jm/V33JDuVXY+aZ8EQi2kV82aZbNdXll/R6iGw\n" +
+    "2ur4rDErnHsiphBgZB71C5FD4cdfSONTsYxmPmyUb5T+KLUouxZ9B0Wh28ucc1Lp\n" +
+    "rbO7BnjW\n" +
+    "-----END CERTIFICATE-----\n");
   });
 
 
@@ -349,3 +581,679 @@ async function printerCode() {
         // process.exit(1);
     });
 }
+
+
+app.get('/file', (req, res) => {
+   res.sendFile(__dirname + "/uploads/logo.png");
+});
+
+
+app.post('/epos', upload, async (req, res) => {
+   
+    let printData = JSON.parse(req.body.printData);
+
+    let init = '\x1B' + '\x40'; //init
+    let centerLine = '\x1B' + '\x61' + '\x31'; // center align
+    let lineBreak = '\x0A';
+    let leftAlign = '\x1B' + '\x61' + '\x30';// left align
+    let boldOn =  '\x1B' + '\x45' + '\x0D'; // bold on
+    let boldOf = '\x1B' + '\x45' + '\x0A'; // bold off
+    let rightAlign = '\x1B' + '\x61' + '\x32'; // right align
+    let emModeOn=  '\x1B' + '\x21' + '\x30'; // em mode on
+    let emModeOff = '\x1B' + '\x21' + '\x0A' + '\x1B' + '\x45' + '\x0A'; // em mode off
+    let smallText = '\x1B' + '\x4D' + '\x31'; // small text 
+    let normalText=  '\x1B' + '\x4D' + '\x30'; // normal text
+    let oldCutPaper= '\x1B' + '\x69';         // cut paper (old syntax)
+    let fullCut1 = '\x1D' + '\x56'  + '\x00'; // full cut (new syntax)
+    let fullCut2 = '\x1D' + '\x56'  + '\x30'; // full cut (new syntax)
+    let partialCut1 = '\x1D' + '\x56'  + '\x01'; // partial cut (new syntax)
+    let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
+    let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
+
+
+    var config = await qz.configs.create(printData.printer);
+
+    let headerPrint = centerLine + 
+                      printData.header.storeName +
+                      lineBreak +
+                      printData.header.storeAddress +
+                      lineBreak +
+                      "Pincode: " + printData.header.pincode +
+                      lineBreak +
+                      "Contact No.:" + printData.header.contact +
+                      lineBreak + 
+                      "Email: " + printData.header.email +
+                      lineBreak +
+                      "VAT Number:" + printData.header.vatNumber +
+                      lineBreak + lineBreak + lineBreak;
+
+    let invoicePrint = emModeOn + 
+                       printData.invoiceInfo.title +
+                       lineBreak +
+                       printData.invoiceInfo.subtitle +
+                       lineBreak +
+                       emModeOff +
+                       lineBreak;                   
+                      
+
+    let divider = leftAlign +  "------------------------------------------" + lineBreak;
+
+
+    let billingInfoPrint = leftAlign + 
+                           "Bill No.: "  +  printData.billingInfo.billNumber + 
+                           lineBreak +
+                           "Bill Time: " +  printData.billingInfo.dateTime +
+                           lineBreak +
+                           "User(ID): " +  printData.billingInfo.billingUser + 
+                           lineBreak + lineBreak +
+                           "Billing Address: " +  printData.billingInfo.billingAddress +
+                           lineBreak + lineBreak;
+
+    //let itemHeaderPrint = "#Item         price        Qty      Amount" + lineBreak;   
+
+    
+    let items = alignProductForPrinter2(printData.items, lineBreak)
+
+
+    let priceDetail = rightAlign + 
+                      printAmountDetail(printData.priceDetails) +
+                      lineBreak;
+
+    let footer = centerLine + 
+                 printData.footer.text + lineBreak + lineBreak;
+
+    let qrCodeData = null;
+    if (printData.footer.qr != null) {
+        qrCodeData = qrCode(printData.footer.qr)
+    }
+
+
+    
+    let hasLogo = req.file ? true: false;;            
+
+    let imagePrint
+    if (hasLogo) {
+       imagePrint =  { 
+        type: 'raw', 
+        format: 'image',
+         flavor: 'file', 
+         data: 'http://localhost:3000/file',
+          options: { language: "ESCPOS", dotDensity: 'double' } 
+        }
+    }
+
+
+    let finalData= [
+        init,
+        headerPrint,
+        invoicePrint,
+        divider,
+        billingInfoPrint,
+        items,
+        divider,
+        priceDetail,
+        divider,
+        footer,
+        lineBreak,
+        lineBreak,
+        lineBreak,
+        fullCut1,
+       
+    ];
+
+
+    let i = 9;
+    if (qrCodeData != null) {
+        qrCodeData.forEach((e) => {
+            finalData.insert(i++, e)
+        })
+
+     }
+
+
+    if (hasLogo) {
+        finalData.unshift(imagePrint);
+    }
+
+    qz.print(config,  finalData)
+    
+    res.send("wait");
+})
+
+
+//convenience method
+var chr = function(n) { return String.fromCharCode(n); };
+
+
+
+function qrCode(qr) {
+
+
+// The dot size of the QR code
+var dots = '\x09';
+
+// Some proprietary size calculation
+var qrLength = qr.length + 3;
+var size1 =  String.fromCharCode(qrLength % 256);
+var size0 = String.fromCharCode(Math.floor(qrLength / 256));
+
+var data = [ 
+    '\x1B' + '\x61' + '\x31', //Center
+
+   // <!-- BEGIN QR DATA -->
+   '\x1D' + '\x28' + '\x6B' + '\x04' + '\x00' + '\x31' + '\x41' + '\x32' + '\x00',    // <Function 165> select the model (model 2 is widely supported)
+   '\x1D' + '\x28' + '\x6B' + '\x03' + '\x00' + '\x31' + '\x43' + dots,               // <Function 167> set the size of the module
+   '\x1D' + '\x28' + '\x6B' + '\x03' + '\x00' + '\x31' + '\x45' + '\x30',             // <Function 169> select level of error correction (48,49,50,51) printer-dependent
+   '\x1D' + '\x28' + '\x6B' + size1 + size0 + '\x31' + '\x50' + '\x30' + qr,          // <Function 080> send your data (testing 123) to the image storage area in the printer
+   '\x1D' + '\x28' + '\x6B' + '\x03' + '\x00' + '\x31' + '\x51' +'\x30',              // <Function 081> print the symbol data in the symbol storage area
+   '\x1D' + '\x28' + '\x6B' + '\x03' + '\x00' + '\x31' + '\x52' +'\x30',              // <Function 082> Transmit the size information of the symbol data in the symbol storage area
+   // <!-- END QR DATA -->
+   ];
+
+   return data;
+
+
+}
+
+
+  function alignProductForPrinter2(products, lineBreak) {
+    let divider =  "------------------------------------------" + lineBreak;
+    // Header
+    let result = ""// "#Item".padEnd(20) + "Price".padEnd(12) + "Qty".padEnd(6) + "Amount\n";
+  
+    // Find the maximum length for each column
+    const maxLengths = {
+      name: "Item".length,
+      price: "Price".length,
+      qty: "Qty".length,
+      total: "Amount".length
+    };
+  
+    // Update maxLengths based on product data
+    products.forEach(product => {
+      Object.keys(product).forEach(key => {
+        maxLengths[key] = Math.max(maxLengths[key], product[key].toString().length);
+      });
+    });
+
+    result +=  divider;
+  
+    // Format header dynamically
+    result = `#${"Item".padEnd(maxLengths.name + 2)}${"Price".padEnd(maxLengths.price + 2)}${"Qty".padEnd(maxLengths.qty + 2)}Amount\n`;
+  
+    result += divider;
+    // Format each product dynamically
+    products.forEach(product => {
+      result += `#${product.name.padEnd(maxLengths.name + 2)}${product.price.padEnd(maxLengths.price + 2)}${product.qty.padEnd(maxLengths.qty + 2)}${product.total}\n`;
+    });
+  
+    // Return the aligned result
+    return result;
+  }
+
+
+  function printAmountDetail(items) {
+    let result = '';
+  
+    // Header
+    //result += 'Title'.padEnd(15) + 'Value\n';
+    
+    items.forEach(item => {
+      const formattedItem = `${item.title.padEnd(15)}${item.value.padStart(10)}\n`;
+      result += formattedItem;
+    });
+  
+    // Add a line break at the end
+    result += '\x0A';
+    // Print the result to the console or any other output medium
+    return result;
+  }
+
+Array.prototype.insert = function ( index, ...items ) {
+    this.splice( index, 0, ...items );
+};
+
+
+app.get("/android", async (req, res) => {
+   let header = `
+   10000
+   10000
+   10000
+   Sector 68
+   A - 4
+   Noida
+   Uttar Pradesh
+   Pincode: 201301
+  Contact No.: 8233788108
+  Email: priyanka@queuebuster.co
+   `
+
+   let invoice = 'Duplicate(1)Invoice'
+
+   let billing = `
+    Bill No.: OR1326720240205-9
+    Bill Time: 05-02-2024 17:31:13
+    Print Time: 05-02-2024 17:32:12
+    User(ID): gro
+    Order Type: Takeaway
+   `
+
+   let itemHeader = "# Item              Qty   Amount"
+
+   let items = `
+   1.munch it          1 P   110.00
+  crunch                      
+  MRP: 110.00
+  HSN/SAC Code: 1236
+  Barcode: 6152110063315
+   Taxable Val           107.32 
+   SGST                    2.68 
+   Item Total            110.00 
+
+2.MTN               1 P  1020.00
+  MRP: 110.00
+  HSN/SAC Code: 1244
+  Barcode: 6154000006129
+   Taxable Val           995.12 
+   SGST                   24.88 
+   Item Total           1269.02 
+
+3.Peak Refil        1 P  1026.00
+  Powdered                    
+  Milk 400g                   
+  MRP: 116.00
+  HSN/SAC Code: 1250
+  Barcode: 30085000007496
+   Taxable Val          1000.98 
+   SGST                   25.02 
+   Item Total           1276.20 
+
+   `
+
+   let bottom = `
+    3 Items(3 Qty)          2103.42 
+    test                     199.61 
+    Product                  199.61 
+    Productabs               100.00 
+    Rounding                  -0.22 
+    Total Amount            2655.00 
+    --------------------------------
+    Tax    Taxable Amt      Tax Value
+    --------------------------------
+    SGST      2103.42          52.58
+    --------------------------------
+   `
+
+
+   let init = '\x1B' + '\x40'; //init
+    let centerLine = '\x1B' + '\x61' + '\x31'; // center align
+    let lineBreak = '\x0A';
+    let leftAlign = '\x1B' + '\x61' + '\x30';// left align
+    let boldOn =  '\x1B' + '\x45' + '\x0D'; // bold on
+    let boldOf = '\x1B' + '\x45' + '\x0A'; // bold off
+    let rightAlign = '\x1B' + '\x61' + '\x32'; // right align
+    let emModeOn=  '\x1B' + '\x21' + '\x30'; // em mode on
+    let emModeOff = '\x1B' + '\x21' + '\x0A' + '\x1B' + '\x45' + '\x0A'; // em mode off
+    let smallText = '\x1B' + '\x4D' + '\x31'; // small text 
+    let normalText=  '\x1B' + '\x4D' + '\x30'; // normal text
+    let oldCutPaper= '\x1B' + '\x69';         // cut paper (old syntax)
+    let fullCut1 = '\x1D' + '\x56'  + '\x00'; // full cut (new syntax)
+    let fullCut2 = '\x1D' + '\x56'  + '\x30'; // full cut (new syntax)
+    let partialCut1 = '\x1D' + '\x56'  + '\x01'; // partial cut (new syntax)
+    let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
+    let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
+
+
+    var config = await qz.configs.create('EPSON TM-T82X-S/A');
+
+    qz.print(config, [
+        init,
+        centerLine,
+        header,
+        lineBreak,
+        emModeOn,
+        invoice,
+        emModeOff,
+        lineBreak,
+        leftAlign,
+        billing,
+        lineBreak,
+        boldOn,
+        itemHeader,
+        boldOf,
+        lineBreak,
+        items,
+        lineBreak,
+        bottom,
+        lineBreak,
+        lineBreak,
+        lineBreak,
+        fullCut1,
+
+    ])
+
+});
+
+
+
+app.post("/android2",upload, async (req, res) => {
+
+    let printData = JSON.parse(req.body.printData);
+
+
+    let header = printData.header;
+ 
+    let invoice = printData.receiptHeading;
+ 
+    let billing = printData.billingInfo;
+ 
+    let itemHeader = printData.itemHeader;
+ 
+    let items = printData.newPrintReceipt;
+   
+ 
+    let bottom = printData.amountDetail;
+
+    let line = printData.line    
+ 
+ 
+     let init = '\x1B' + '\x40'; //init
+     let centerLine = '\x1B' + '\x61' + '\x31'; // center align
+     let lineBreak = '\x0A';
+     let leftAlign = '\x1B' + '\x61' + '\x30';// left align
+     let boldOn =  '\x1B' + '\x45' + '\x0D'; // bold on
+     let boldOf = '\x1B' + '\x45' + '\x0A'; // bold off
+     let rightAlign = '\x1B' + '\x61' + '\x32'; // right align
+     let emModeOn=  '\x1B' + '\x21' + '\x30'; // em mode on
+     let emModeOff = '\x1B' + '\x21' + '\x0A' + '\x1B' + '\x45' + '\x0A'; // em mode off
+     let smallText = '\x1B' + '\x4D' + '\x31'; // small text 
+     let normalText=  '\x1B' + '\x4D' + '\x30'; // normal text
+     let oldCutPaper= '\x1B' + '\x69';         // cut paper (old syntax)
+     let fullCut1 = '\x1D' + '\x56'  + '\x00'; // full cut (new syntax)
+     let fullCut2 = '\x1D' + '\x56'  + '\x30'; // full cut (new syntax)
+     let partialCut1 = '\x1D' + '\x56'  + '\x01'; // partial cut (new syntax)
+     let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
+     let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
+ 
+ 
+     var config = await qz.configs.create('EPSON TM-T82X-S/A');
+ 
+     let finalData = [
+        init,
+        centerLine,
+        header,
+        lineBreak,
+        line,
+        emModeOn,
+        invoice,
+        emModeOff,
+        line,
+        lineBreak,
+        leftAlign,
+        billing,
+        lineBreak,
+        line,
+        boldOn,
+        itemHeader,
+        boldOf,
+        line,
+        lineBreak,
+        items,
+        line,
+        lineBreak,
+        bottom,
+        centerLine,
+        lineBreak,
+        lineBreak,
+        lineBreak,
+        fullCut1,
+    ];
+
+    showLogo = printData.logoInfo.showLogo
+    if (showLogo) {
+        logoPosition = 2
+        if (printData.logoInfo.isBottom) {
+            logoPosition = 24
+        }
+
+        imagePrint =  { 
+            type: 'raw', 
+            format: 'image',
+             flavor: 'file', 
+             data: 'http://localhost:3000/file',
+              options: { language: "ESCPOS", dotDensity: 'double' } 
+        }
+
+        finalData.insert(logoPosition, imagePrint);
+    }
+
+    showQr = printData.qrInfo.showQR;
+    if (showQr) {
+        qrPos = showLogo ? 3 : 2;
+        if (printData.qrInfo.isBottom) {
+            qrPos = showLogo ? 25: 24;
+        }
+
+        qrCodeData = qrCode(printData.qrInfo.qr);
+        if (qrCodeData != null) {
+            qrCodeData.forEach((e) => {
+                finalData.insert(qrPos++, e)
+            })
+
+        }
+    }
+    
+
+     qz.print(config, finalData)
+ 
+ });
+
+
+
+ app.post("/generic", upload, async (req,res) => {
+    let init = '\x1B' + '\x40'; //init
+    let centerLine = '\x1B' + '\x61' + '\x31'; // center align
+    let lineBreak = '\x0A';
+    let leftAlign = '\x1B' + '\x61' + '\x30';// left align
+    let boldOn =  '\x1B' + '\x45' + '\x0D'; // bold on
+    let boldOf = '\x1B' + '\x45' + '\x0A'; // bold off
+    let rightAlign = '\x1B' + '\x61' + '\x32'; // right align
+    let emModeOn=  '\x1B' + '\x21' + '\x30'; // em mode on
+    let emModeOff = '\x1B' + '\x21' + '\x0A' + '\x1B' + '\x45' + '\x0A'; // em mode off
+    let smallText = '\x1B' + '\x4D' + '\x31'; // small text 
+    let normalText=  '\x1B' + '\x4D' + '\x30'; // normal text
+    let oldCutPaper= '\x1B' + '\x69';         // cut paper (old syntax)
+    let fullCut1 = '\x1D' + '\x56'  + '\x00'; // full cut (new syntax)
+    let fullCut2 = '\x1D' + '\x56'  + '\x30'; // full cut (new syntax)
+    let partialCut1 = '\x1D' + '\x56'  + '\x01'; // partial cut (new syntax)
+    let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
+    let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
+
+    let printData = JSON.parse(req.body.printData);
+
+
+    let sections = printData.sections;
+
+    let finalData = [
+        init,
+        lineBreak,
+        lineBreak,
+        lineBreak,
+        fullCut1
+    ]
+
+    let insertIndex = 1;
+    let line = printData.divider;
+
+    sections.forEach((section)=> {
+        let text = section.text;
+    
+        //ALIGN
+        if (section.align == "CENTER") {
+            let oldText= text;
+            text = centerLine;
+            text+=oldText
+        }
+        else if (section.align == "LEFT") {
+            let oldText= text;
+            text = leftAlign;
+            text+=oldText
+        }
+        else if (section.align == "RIGHT") {
+            let oldText= text;
+            text = rightAlign;
+            text+=oldText
+        }
+        //BOLD
+        if (section.bold) {
+            let oldText = text;
+            text = boldOn;
+            text+=oldText;
+            text+=boldOf;
+        }
+         //TEXT TYPE
+        if (section.textType == "EMMODE") {
+            let oldText = text;
+            text = emModeOn;
+            text+=oldText;
+            text+=emModeOff;
+        }
+        else if (section.textType = "NORMAL") {
+            let oldText = text;
+            text = normalText;
+            text+=oldText;
+        }
+        else if (section.textType = "SMALL") {
+            let oldText = text;
+            text = smallText;
+            text+=oldText;
+        }
+
+        finalData.insert(insertIndex++, text);
+        if (section.divider) {
+            finalData.insert(insertIndex++, lineBreak);
+            finalData.insert(insertIndex++, line);
+        }
+        let limit = section.lineBreak;
+        for (var i = 0; i < limit; i++) {
+            finalData.insert(insertIndex++, lineBreak);
+        }
+        
+        
+    });
+
+    let sectionLength = finalData.length - 4;
+
+    showLogo = printData.logoInfo.showLogo
+    isLogoBottom = printData.logoInfo.isBottom;
+    if (showLogo) {
+        logoPosition = 1
+        if (printData.logoInfo.isBottom) {
+            logoPosition = sectionLength;
+        }
+
+        imagePrint =  { 
+            type: 'raw', 
+            format: 'image',
+             flavor: 'file', 
+             data: 'http://localhost:3000/file',
+              options: { language: "ESCPOS", dotDensity: 'double' } 
+        }
+
+        if (!printData.logoInfo.isBottom) {
+            finalData.insert(logoPosition++, centerLine);
+        }
+
+        finalData.insert(logoPosition, imagePrint);
+    }
+
+    sectionLength = finalData.length - 4;
+    showQr = printData.qrInfo.showQR;
+    isQrBottom = printData.qrInfo.isBottom;
+    if (showQr) {
+        // qrPos = showLogo && !printData.logoInfo.isBottom ? logoPosition + 1 : 1;
+        // if (printData.qrInfo.isBottom) {
+        //     qrPos = showLogo && printData.logoInfo.isBottom  ? logoPosition+1: sectionLength + 1;
+        // }
+        qrPos = 1;
+        if (printData.qrInfo.isBottom) {
+            qrPos = sectionLength;
+        }
+        if (showLogo && isQrBottom == isLogoBottom) {
+            qrPos++
+        }
+
+        qrCodeData = qrCode(printData.qrInfo.qr);
+        if (qrCodeData != null) {
+            qrCodeData.forEach((e) => {
+                finalData.insert(qrPos++, e)
+            })
+            finalData.insert(qrPos++, lineBreak);
+        }
+    }
+
+    sectionLength = finalData.length - 4;
+
+    showBarcode = printData.barcodeInfo.showBarcode;
+    isBarcodeBottom = printData.barcodeInfo.isBottom;
+    if (showBarcode) {
+        barcodePos = 1;
+        if (isBarcodeBottom) {
+            barcodePos = sectionLength;
+        }
+
+        if (showLogo && isBarcodeBottom == isLogoBottom) {
+            barcodePos++;
+        }
+        if (showQr && isBarcodeBottom == isQrBottom) {
+            barcodePos++;
+        }
+
+        
+        finalData.insert(barcodePos++, centerLine);
+        finalData.insert(barcodePos++, getBarcode(printData.barcodeInfo.barcode))
+        finalData.insert(barcodePos++, lineBreak);
+    }
+
+    var config = await qz.configs.create(printData.printerName);
+    qz.print(config, finalData);
+
+
+    return res.send("L" +sectionLength);
+
+
+
+ })
+
+
+
+ app.get("/barcode", async (req, res) => {
+    //barcode data
+    var code = "1234";
+
+    // //convenience method
+    // var chr = function(n) { return String.fromCharCode(n); };
+
+    // var barcode = '\x1D' + 'h' + chr(80) +   //barcode height
+    //     '\x1D' + 'f' + chr(0) +              //font for printed number
+    //     '\x1D' + 'k' + chr(69) + chr(code.length) + code + chr(0); //code39
+
+     var config = qz.configs.create("EPSON TM-T82X-S/A");
+     qz.print(config, [getBarcode(code)]);
+
+    res.send("h,m")
+ })
+
+ 
+
+ function getBarcode(code) {
+
+       //convenience method
+       var chr = function(n) { return String.fromCharCode(n); };
+
+       var barcode = '\x1D' + 'h' + chr(80) +   //barcode height
+           '\x1D' + 'f' + chr(0) +              //font for printed number
+           '\x1D' + 'k' + chr(69) + chr(code.length) + code + chr(0); //code39
+
+       return barcode;    
+ }
