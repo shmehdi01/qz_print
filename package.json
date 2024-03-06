@@ -1,10 +1,12 @@
 {
   "name": "printer.api",
+  "bin": "bin/index.js",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "pkg": "pkg --target node18-macos-arm64  index.js"
   },
   "author": "",
   "license": "ISC",
@@ -17,6 +19,7 @@
     "jsrsasign": "^11.0.0",
     "jsrsasign-util": "^1.0.5",
     "multer": "^1.4.5-lts.1",
+    "pkg": "^5.8.1",
     "qz-tray": "^2.2.3",
     "url": "^0.11.3",
     "ws": "^8.16.0"
