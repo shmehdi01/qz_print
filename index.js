@@ -82,7 +82,11 @@ app.post('/upload', upload, async (req, res)=>{
 app.listen(PORT, '0.0.0.0', async (error) =>{ 
    await connectPrinter();
 	if(!error) 
-		console.log("Server is Successfully Running, and App is listening on port "+ PORT) 
+		{
+            console.log("Queuebuster || QB Printer Service Running"); 
+            console.warn("Please do not close")
+        }
+    
 	else
 		console.log("Error occurred, server can't start", error); 
 	} 
@@ -414,68 +418,17 @@ Halo
 
 async function connectPrinter() {
 
-   qz.security.setCertificatePromise(function (resolve, reject) {
-    cer = `
-    -----BEGIN CERTIFICATE-----
-MIIECzCCAvOgAwIBAgIGAY3BPyGUMA0GCSqGSIb3DQEBCwUAMIGiMQswCQYDVQQG
-EwJVUzELMAkGA1UECAwCTlkxEjAQBgNVBAcMCUNhbmFzdG90YTEbMBkGA1UECgwS
-UVogSW5kdXN0cmllcywgTExDMRswGQYDVQQLDBJRWiBJbmR1c3RyaWVzLCBMTEMx
-HDAaBgkqhkiG9w0BCQEWDXN1cHBvcnRAcXouaW8xGjAYBgNVBAMMEVFaIFRyYXkg
-RGVtbyBDZXJ0MB4XDTI0MDIxODEyMDIzNloXDTQ0MDIxODEyMDIzNlowgaIxCzAJ
-BgNVBAYTAlVTMQswCQYDVQQIDAJOWTESMBAGA1UEBwwJQ2FuYXN0b3RhMRswGQYD
-VQQKDBJRWiBJbmR1c3RyaWVzLCBMTEMxGzAZBgNVBAsMElFaIEluZHVzdHJpZXMs
-IExMQzEcMBoGCSqGSIb3DQEJARYNc3VwcG9ydEBxei5pbzEaMBgGA1UEAwwRUVog
-VHJheSBEZW1vIENlcnQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCv
-aLgni9YYWSG7/gpOzCgXhyBZdR61y3w/dQvb5ahj3Pr0IvvTmWOEPsi25vK/RnLI
-LIgtrnslBcuiWqVgEImWAUym+yWRjnoiPWQVr/gwv9hGw1z7TdrZJtdvfwJG9JJ3
-Id8tPNIHJO7rgSYPkt5kesLmEZNdx6o8lA6LXXfIerWzWia0A2EU0NqmMGqS6MhC
-9zTbM+snXUbIeqd9PTM1y7bo58dx5I7mszZm2aCHO+SHZS6LIF7IRO9YVt8kO1qc
-Ng+S793tCQ3dhM00kRl//FoeBpOuNRCTjlKgWAo+dfXb6b2LGUCJ3uXZOUhRyzXv
-Xh2/qKx6FjFhFRnkPYUjAgMBAAGjRTBDMBIGA1UdEwEB/wQIMAYBAf8CAQEwDgYD
-VR0PAQH/BAQDAgEGMB0GA1UdDgQWBBS8aNlycysaCnBSodfKB5TDwdcNQzANBgkq
-hkiG9w0BAQsFAAOCAQEAevCCB9ndj4qbr3EVIsfPww17S82koyOUBAVZ8BLvtKwG
-d88mDFdURgRKFniD2/BG910UPJgzg5y1PQ7lQQ7cBkC+PfLkYGd7ZORhqvxYQk/w
-OiMyInFU19bSYuPNm2dwt4uCpwY38G+IVj0VAOBtZEMJP6HG394uVPCXi40zvnrr
-C0WEwLOMV5PbdxcuZRyIcfwNaksIjDM9h402UzNFEZJVVShuBHRsmnL27pRW/GqV
-2phjAKmBPuDSll9UzZwjWjocHvx4sgIXh6OCywEUARazjkcmJOztmCAUo/ld5foL
-kk1P4fi88OWRJYdh9AzJgMQHRw9naAF4nEbbSxQSFQ==
------END CERTIFICATE-----
+    const privateKey = fs.readFileSync('private-key.pem', "utf8");
+    const digitalCertificate = fs.readFileSync('digital-certificate.txt', "utf8");
 
-    `
-    resolve(cer);
+ 
+
+   qz.security.setCertificatePromise(function (resolve, reject) {
+    resolve(digitalCertificate);
   });
 
 
-  privateKey = `
-  -----BEGIN PRIVATE KEY-----
-MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCvaLgni9YYWSG7
-/gpOzCgXhyBZdR61y3w/dQvb5ahj3Pr0IvvTmWOEPsi25vK/RnLILIgtrnslBcui
-WqVgEImWAUym+yWRjnoiPWQVr/gwv9hGw1z7TdrZJtdvfwJG9JJ3Id8tPNIHJO7r
-gSYPkt5kesLmEZNdx6o8lA6LXXfIerWzWia0A2EU0NqmMGqS6MhC9zTbM+snXUbI
-eqd9PTM1y7bo58dx5I7mszZm2aCHO+SHZS6LIF7IRO9YVt8kO1qcNg+S793tCQ3d
-hM00kRl//FoeBpOuNRCTjlKgWAo+dfXb6b2LGUCJ3uXZOUhRyzXvXh2/qKx6FjFh
-FRnkPYUjAgMBAAECggEABtFFSwraejLIprOudzaPHlmlo7nIxPG7iq8uvqVelexf
-opUo1XtiN0sbZk8emIQ7739vltrvtVYpfni9xw3i0xOKL6PrkgyIFFmaJg+jT/28
-1wST0hP0vA466aigOt1u7eDBTv2h/3Nrh81gCyiUVTJs7cqOwDfY7CbS/o6rmlKT
-YT8XcPKbwbKxaLQ2uUGR6xTvJ5opPYAU3C8XtACLQ4WZ/hv13z1wX35Hwyrwkevx
-4HOHcIuwX86e4k63IswvfmdId7x7ozmPJ+nyQSv2nWIIZfTfxL6JDO/87QX2VZjH
-b3pkbuF/vfVz0EJz0rLUgHirycwlxia/Wm4EOc2pCQKBgQDtNAkErkEcyvaHFhD3
-PLJqpKmtBbK9NpDbDfOb+0fNk/0tCDfa1hIGgKVSc5nkJqUqHHxOBZuwRasRMVHv
-6Kbbk85NdP2RZ92tKj67Qt2S9jYIolkcsA1uvByTmddrBtdOqCRl9OAs34QUkVhN
-s2UTnN5XGSEP2C8IjOtmxJkdqwKBgQC9TxyIplNS0GHcoIaxJk89V2U+E8kFo5zc
-766axC65dl6CRLoLJEZ8cgyO5UrIvIgTLEWRvF0bpBYJrYRUK7fpSjlny6wcEr4o
-p8XCkVixCIMNj3MQ8+gIrS24BcKIg6O1Zc46mPXLPWwtY1K5aPuHlUQ8IDrE/PlZ
-p+MlqnMOaQKBgG0dCaT4j4UyLBNZ6DYC2sPJuS+ZNm5polrR4ST4g0Ai+kxzwlXN
-MX+CQApcmQblbAaiEeBGHicI9Tc0a8+jQtYw+K6SyW3QzJ0ymKbFjG1lCtgP7lQO
-/C7bI34WP4zBGdvZ5txrt4+MxhI8BdXAVxedin2gVqAWPxR81nBwsUp/AoGANF64
-VA0/K7+98tztpgAlF6EfvuaWS9sRQAWGVgZDrsbSKlN87Cwi27ZpRvajk5ikRDmR
-HVnwn/7qoc7AttBJVl5UNySe/j0pIfIXwVWYJZFnP88ZU+1FmXDfHvNo938DQOFj
-Bc7e4FSjooLBlc03GDDw6Xk5CNm62VSagAcBQVECgYArTh0Cz/EAM8uOgx/lP2zb
-Giav9U5DckZ3UAC5g7NuWg2xhqEJOb3KsjyhzyTmhICjcUbmCTNfYa4HZxBGPhDR
-DlC8rZ3hyS9VuxdFA6pti13okz7iw/bf+pMHZzl0PAJ3BO7ktyanJA1YJUIJbuON
-IdjG3FL1vd9uNtdMnvLb2g==
------END PRIVATE KEY-----
-  `
+
 
 
 qz.security.setSignatureAlgorithm("SHA512"); // Since 2.1
