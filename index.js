@@ -418,8 +418,8 @@ Halo
 
 async function connectPrinter() {
 
-    const privateKey = fs.readFileSync('private-key.pem', "utf8");
-    const digitalCertificate = fs.readFileSync('digital-certificate.txt', "utf8");
+    const privateKey = fs.readFileSync('/private-key.pem', 'utf8');
+    const digitalCertificate = fs.readFileSync('/digital-certificate.txt', "utf8");
 
  
 

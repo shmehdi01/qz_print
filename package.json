@@ -1,12 +1,23 @@
 {
   "name": "printer.api",
-  "bin": "bin/index.js",
+  "bin": "index.js",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "pkg": "pkg --target node18-macos-arm64  index.js"
+  },
+  "pkg": {
+    "assets": [
+      "private-key.pem",
+      "digital-certificate.txt",
+      "uploads/*"
+    ],
+    "targets": [
+      "node18-macos-arm64",
+      "node18-win-x64"
+    ]
   },
   "author": "",
   "license": "ISC",
