@@ -1180,3 +1180,20 @@ app.post("/android2",upload, async (req, res) => {
 
        return barcode;    
  }
+
+
+ app.get("/invoice", async (req, res) => {
+
+    pdfUrl = 'https://s3.ap-south-1.amazonaws.com/qbstore/temp/Sales_Invoice_51981_1717583093.pdf?X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAR4QU435RPOONIBXJ%2F20240605%2Fap-south-1%2Fs3%2Faws4_request&X-Amz-Date=20240605T102454Z&X-Amz-SignedHeaders=host&X-Amz-Expires=604800&X-Amz-Signature=b34470fc557d2f6ab6ff14534377460cc5d1edd41ca009640e56d5709393eca6';
+
+    printData = { 
+        type: 'raw', 
+        format: 'image',
+         flavor: 'file', 
+         data: pdfUrl,
+          options: { language: "ESCPOS", dotDensity: 'double' } 
+    };
+
+    var config = await qz.configs.create('Hp');
+    qz.print(config, [printData]);
+ });
