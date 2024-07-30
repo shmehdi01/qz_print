@@ -1,0 +1,5 @@
+node_modules
+digital-certificate.txt
+private-key.pem
+package-lock.json
+.DS_Store
