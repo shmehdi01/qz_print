@@ -13,12 +13,14 @@ app.use(bodyParser.urlencoded({ extended: false }))
 
 const PORT = 3000; 
 
-
 app.get('/', (req, res)=>{ 
     res.status(200); 
     res.send("QB Printer Service Running.."); 
 }); 
 
+app.get('/logo', (req, res) => {
+    res.sendFile(__dirname + "/logo/logo.png");
+});
 
 app.get('/printers', async (req, res)=>{ 
     var printers = await qz.printers.find();
@@ -251,7 +253,7 @@ function qrCode(qr) {
     }
     
 
-    function getBarcode(code) {
+function getBarcode(code) {
 
         //convenience method
         var chr = function(n) { return String.fromCharCode(n); };
@@ -261,10 +263,9 @@ function qrCode(qr) {
             '\x1D' + 'k' + chr(69) + chr(code.length) + code + chr(0); //code39
  
         return barcode;    
-  }
+}
 
-
-  async function connectPrinter() {
+async function connectPrinter() {
 
     const privateKey = fs.readFileSync('private-key.pem', 'utf8');
     const digitalCertificate = fs.readFileSync('digital-certificate.txt', "utf8");

@@ -3,17 +3,18 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "pkg": {
     "assets": [
       "private-key.pem",
-      "digital-certificate.txt"
+      "digital-certificate.txt",
+      "/logo"
     ],
     "targets": [
-      "node18-macos-arm64",
-      "node18-win-x64"
+      "node18-macos-arm64"
     ]
   },
   "keywords": [],
