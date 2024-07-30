@@ -64,7 +64,7 @@ app.post('/testPrint', async (req, res)=>{
     let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
     let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
 
-    let printData = JSON.parse(req.body.printData);
+    let printData = req.body.printData;
 
 
     let sections = printData.sections;
