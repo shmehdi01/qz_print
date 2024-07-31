@@ -32,6 +32,9 @@ app.post('/testPrint', async (req, res)=>{
     let msg = req.body.msg;
     let printerName = req.body.printerName;
     let config = await qz.configs.create(printerName);
+
+    console.info(req.body);
+
     await qz.print(config, [
     //'\x1B' + '\x40',
       msg, 
@@ -43,6 +46,7 @@ app.post('/testPrint', async (req, res)=>{
      '\x1D' + '\x56'  + '\x00'
  ]);
     
+
     res.send("Wait"); 
  }); 
 
@@ -66,7 +70,10 @@ app.post('/testPrint', async (req, res)=>{
     let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
     let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
 
-    let printData = req.body.printData;
+    let printData = req.body;
+
+    console.info(`PrinterName: ${printData.printerName}`);
+    console.info(printData.logoInfo);
 
 
     let sections = printData.sections;
@@ -141,7 +148,7 @@ app.post('/testPrint', async (req, res)=>{
 
     let sectionLength = finalData.length - 4;
 
-    showLogo = printData.logoInfo.showLogo
+    showLogo = printData.logoInfo.showLogo && printData.logoInfo.imageUrl != null;
     isLogoBottom = printData.logoInfo.isBottom;
     if (showLogo) {
         logoPosition = 1
@@ -318,3 +325,6 @@ app.listen(PORT, '0.0.0.0', async (error) =>{
      
  ); 
 
+Array.prototype.insert = function ( index, ...items ) {
+    this.splice( index, 0, ...items );
+};
