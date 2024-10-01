@@ -92,7 +92,7 @@ app.post("/generic", async (req, res) => {
     sections.forEach((section) => {
         let dataType = section.dataType;
 
-        if (dataType == "text") {
+        if (dataType == "TEXT") {
 
             let text = section.data;
 
@@ -140,8 +140,9 @@ app.post("/generic", async (req, res) => {
             finalData.insert(insertIndex++, text);
         }
 
-        if (dataType == "qr") {
-            qrCodeData = qrCode(printData.qrInfo.qr);
+        if (dataType == "QR") {
+            let qr = section.data;
+            qrCodeData = qrCode(qr);
             if (qrCodeData != null) {
                 qrCodeData.forEach((e) => {
                     finalData.insert(insertIndex++, e)
@@ -150,9 +151,10 @@ app.post("/generic", async (req, res) => {
             }
         }
 
-        if (dataType == "barcode") {
+        if (dataType == "BARCODE") {
+            let barcode = section.data;
            // finalData.insert(insertIndex++, centerLine);
-            finalData.insert(insertIndex++, getBarcode(printData.barcodeInfo.barcode))
+            finalData.insert(insertIndex++, getBarcode(barcode))
         }
 
         if (section.divider) {
@@ -308,8 +310,8 @@ function getBarcode(code) {
 
 async function connectPrinter() {
 
-    const privateKey = fs.readFileSync(__dirname + '/private-key.pem', 'utf8');
-    const digitalCertificate = fs.readFileSync(__dirname + '/digital-certificate.txt', "utf8");
+    const privateKey = fs.readFileSync('private-key.pem', 'utf8');
+    const digitalCertificate = fs.readFileSync('digital-certificate.txt', "utf8");
 
     qz.security.setCertificatePromise(function (resolve, reject) {
         resolve(digitalCertificate);
