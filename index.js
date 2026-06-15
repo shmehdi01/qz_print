@@ -16,6 +16,22 @@ app.use(bodyParser.json({limit: '50mb'}));
 app.use(bodyParser.urlencoded({ extended: false })) // for form data
 
 
+// ---------------------------------------------------------------------------
+// Process-level safety net.
+// pkg bundles Node 18, where an unhandled promise rejection terminates the
+// whole process by default. Several print routes do `await qz.*` (or
+// fire-and-forget qz.print) without a try/catch, so any QZ Tray hiccup,
+// offline printer, or malformed request would otherwise CRASH the print
+// service ("the EXE closes automatically"). These handlers keep the bridge
+// alive — we log the problem and stay up so the next print can succeed.
+process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', (reason && reason.message) || reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[uncaughtException]', (err && err.message) || err);
+});
+
+
 
 
 
@@ -79,19 +95,29 @@ app.post('/upload', upload, async (req, res)=>{
  }); 
  
 
-app.listen(PORT, '0.0.0.0', async (error) =>{ 
-   await connectPrinter();
-	if(!error) 
+app.listen(PORT, '0.0.0.0', async (error) =>{
+	if(!error)
 		{
-            console.log("Queuebuster || QB Printer Service Running"); 
+            console.log("Queuebuster || QB Printer Service Running");
             console.warn("Please do not close")
         }
-    
-	else
-		console.log("Error occurred, server can't start", error); 
-	} 
-    
-); 
+
+	else {
+		console.log("Error occurred, server can't start", error);
+		return;
+	}
+	// Connect to QZ Tray, but never let a failed connect crash startup — if
+	// QZ Tray isn't running yet, the HTTP server still comes up and each
+	// print will lazily (re)connect via ensureConnected().
+	try {
+	    await connectPrinter();
+	    console.log("Connected to QZ Tray");
+	} catch (e) {
+	    console.error("Initial QZ Tray connect failed; will retry on demand:", (e && e.message) || e);
+	}
+	}
+
+);
 
 app.get('/', (req, res)=>{ 
     res.status(200); 
@@ -467,12 +493,26 @@ qz.security.setSignaturePromise(function(toSign) {
     
     qz.api.setWebSocketType(ws)
     config = {
-         host: 'localhost', 
+         host: 'localhost',
          usingSecure: false,
-         retries: 5, 
-         delay: 1 
+         retries: 5,
+         delay: 1
     };
     await qz.websocket.connect(config);
+}
+
+
+// Lazily (re)connect to QZ Tray. The original code connected once at startup
+// and never recovered if QZ Tray restarted or the socket dropped ("QZ Tray
+// stops working"). Call this before every print so a dropped connection
+// self-heals on the next job instead of failing forever.
+async function ensureConnected() {
+    try {
+        if (qz.websocket.isActive && qz.websocket.isActive()) return;
+    } catch (e) {
+        // isActive can throw before the first connect — fall through to connect.
+    }
+    await connectPrinter();
 }
 
 
@@ -992,6 +1032,8 @@ app.post("/android2",upload, async (req, res) => {
     let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
     let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
 
+    try {
+
     let printData = JSON.parse(req.body.printData);
 
 
@@ -1138,13 +1180,23 @@ app.post("/android2",upload, async (req, res) => {
         finalData.insert(barcodePos++, lineBreak);
     }
 
+    await ensureConnected();
     var config = await qz.configs.create(printData.printerName);
-    qz.print(config, finalData);
+    await qz.print(config, finalData);
 
 
     return res.send("L" +sectionLength);
 
-
+    } catch (err) {
+        // Previously a QZ-disconnect / offline-printer / bad-JSON here threw an
+        // unhandled rejection and crashed the whole service. Now we log it and
+        // return HTTP 500 — the Android app surfaces that as a "Printer not
+        // responding" toast instead of silently losing the receipt.
+        console.error("[/generic] print failed:", (err && err.message) || err);
+        if (!res.headersSent) {
+            return res.status(500).send({ error: String((err && err.message) || err) });
+        }
+    }
 
  })
 
