@@ -34,22 +34,34 @@ app.get('/logo', (req, res) => {
     res.sendFile(__dirname + "/logo/logo.png");
 });
 
-app.get('/printers', async (req, res)=>{ 
-    var printers = await qz.printers.find();
-    res.send({"printers": printers}); 
-}); 
+app.get('/printers', async (req, res)=>{
+    try {
+        await ensureConnected();
+        var printers = await qz.printers.find();
+        res.send({"printers": printers});
+    } catch (err) {
+        // QZ Tray disconnected -> qz.printers.find() rejects with
+        // "Cannot read properties of null (reading 'sendData')". Reconnect
+        // above handles the common case; if it still fails, return an empty
+        // list with 500 instead of letting it become an unhandledRejection.
+        console.error("[/printers] failed:", (err && err.message) || err);
+        if (!res.headersSent) res.status(500).send({ printers: [], error: String((err && err.message) || err) });
+    }
+});
 
 
-app.post('/testPrint', async (req, res)=>{ 
+app.post('/testPrint', async (req, res)=>{
+  try {
     let msg = req.body.msg;
     let printerName = req.body.printerName;
+    await ensureConnected();
     let config = await qz.configs.create(printerName);
 
     console.info(req.body);
 
     await qz.print(config, [
     //'\x1B' + '\x40',
-      msg, 
+      msg,
      '\x0A',
      '\x0A',
      '\x0A',
@@ -57,10 +69,14 @@ app.post('/testPrint', async (req, res)=>{
      '\x0A',
      '\x1D' + '\x56'  + '\x00'
  ]);
-    
 
-    res.send("Wait"); 
- }); 
+
+    res.send("Wait");
+  } catch (err) {
+    console.error("[/testPrint] failed:", (err && err.message) || err);
+    if (!res.headersSent) res.status(500).send({ status: false, error: String((err && err.message) || err) });
+  }
+ });
 
 
  app.post("/generic", async (req,res) => {
