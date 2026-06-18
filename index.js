@@ -1,9 +1,19 @@
-const express = require('express'); 
+const express = require('express');
 const qz = require("qz-tray");
 const ws = require('ws')
 var bodyParser = require('body-parser');
 const fs = require('fs');
 var rs = require('jsrsasign');
+const path = require('path');
+
+// Resolve runtime files (cert/key) relative to the EXE's own folder, not the
+// current working directory. When packaged with pkg and launched as a service
+// / scheduled task / shortcut, process.cwd() is often NOT the EXE folder, so
+// a bare 'private-key.pem' fails with ENOENT. process.execPath points at the
+// EXE, so its dirname is where the loose cert files live. In dev (plain node)
+// fall back to __dirname.
+const APP_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
+function appFile(name) { return path.join(APP_DIR, name); }
 
 
 const app = express();
@@ -315,8 +325,8 @@ function getBarcode(code) {
 
 async function connectPrinter() {
 
-    const privateKey = fs.readFileSync('private-key.pem', 'utf8');
-    const digitalCertificate = fs.readFileSync('digital-certificate.txt', "utf8");
+    const privateKey = fs.readFileSync(appFile('private-key.pem'), 'utf8');
+    const digitalCertificate = fs.readFileSync(appFile('digital-certificate.txt'), "utf8");
 
    qz.security.setCertificatePromise(function (resolve, reject) {
     resolve(digitalCertificate);
