@@ -6,14 +6,23 @@ const fs = require('fs');
 var rs = require('jsrsasign');
 const path = require('path');
 
-// Resolve runtime files (cert/key) relative to the EXE's own folder, not the
-// current working directory. When packaged with pkg and launched as a service
-// / scheduled task / shortcut, process.cwd() is often NOT the EXE folder, so
-// a bare 'private-key.pem' fails with ENOENT. process.execPath points at the
-// EXE, so its dirname is where the loose cert files live. In dev (plain node)
-// fall back to __dirname.
 const APP_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
-function appFile(name) { return path.join(APP_DIR, name); }
+
+// Read a runtime file (cert/key) robustly, working for BOTH deployment models:
+//   1) bundled into the exe via pkg `assets` (relative path -> pkg snapshot) —
+//      this is how the original working exe shipped, so it runs standalone.
+//   2) a loose file next to the exe (path.dirname(process.execPath)) — so
+//      deployments that keep certs beside the exe also work, even when the
+//      exe is launched from a different working directory.
+// The previous version read ONLY from next-to-the-exe, which broke the
+// bundled/standalone case (ENOENT: private-key.pem). This restores it.
+function readAppFile(name) {
+    try {
+        return fs.readFileSync(name, 'utf8');                     // bundled / cwd
+    } catch (e1) {
+        return fs.readFileSync(path.join(APP_DIR, name), 'utf8'); // next to exe
+    }
+}
 
 
 const app = express();
@@ -325,8 +334,8 @@ function getBarcode(code) {
 
 async function connectPrinter() {
 
-    const privateKey = fs.readFileSync(appFile('private-key.pem'), 'utf8');
-    const digitalCertificate = fs.readFileSync(appFile('digital-certificate.txt'), "utf8");
+    const privateKey = readAppFile('private-key.pem');
+    const digitalCertificate = readAppFile('digital-certificate.txt');
 
    qz.security.setCertificatePromise(function (resolve, reject) {
     resolve(digitalCertificate);
