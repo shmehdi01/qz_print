@@ -6,22 +6,25 @@ const fs = require('fs');
 var rs = require('jsrsasign');
 const path = require('path');
 
-const APP_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
-
-// Read a runtime file (cert/key) robustly, working for BOTH deployment models:
-//   1) bundled into the exe via pkg `assets` (relative path -> pkg snapshot) —
-//      this is how the original working exe shipped, so it runs standalone.
-//   2) a loose file next to the exe (path.dirname(process.execPath)) — so
-//      deployments that keep certs beside the exe also work, even when the
-//      exe is launched from a different working directory.
-// The previous version read ONLY from next-to-the-exe, which broke the
-// bundled/standalone case (ENOENT: private-key.pem). This restores it.
+// Read a runtime file (cert/key) robustly, trying every place it might live.
+// ORDER MATTERS — the first candidate is the fix for the standalone exe:
+//   1) path.join(__dirname, name): inside a pkg exe, __dirname is the VIRTUAL
+//      SNAPSHOT (/snapshot/...), which is where pkg `assets` are bundled. This
+//      reads a cert baked INTO the exe, so it runs self-contained.
+//      (A bare 'name' does NOT do this — relative paths resolve to cwd, not the
+//      snapshot, which is why the previous version failed with ENOENT.)
+//   2) next to the exe on disk (path.dirname(process.execPath)) — for
+//      deployments that keep the certs beside the exe.
+//   3) the current working directory.
 function readAppFile(name) {
-    try {
-        return fs.readFileSync(name, 'utf8');                     // bundled / cwd
-    } catch (e1) {
-        return fs.readFileSync(path.join(APP_DIR, name), 'utf8'); // next to exe
+    const candidates = [path.join(__dirname, name)];
+    if (process.pkg) candidates.push(path.join(path.dirname(process.execPath), name));
+    candidates.push(name);
+    let lastErr;
+    for (const p of candidates) {
+        try { return fs.readFileSync(p, 'utf8'); } catch (e) { lastErr = e; }
     }
+    throw lastErr;
 }
 
 
