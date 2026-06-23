@@ -4,6 +4,32 @@ const ws = require('ws')
 var bodyParser = require('body-parser');
 const fs = require('fs');
 var rs = require('jsrsasign');
+const path = require('path');
+
+// Read a bundled runtime file (cert/key) from the pkg snapshot first
+// (path.join(__dirname,...) = the /snapshot virtual FS where pkg `assets` live),
+// then next to the exe, then cwd. A bare relative path reads cwd, NOT the
+// snapshot, so a self-contained exe fails with ENOENT — this fixes that.
+function readAppFile(name) {
+    const candidates = [path.join(__dirname, name)];
+    if (process.pkg) candidates.push(path.join(path.dirname(process.execPath), name));
+    candidates.push(name);
+    let lastErr;
+    for (const p of candidates) {
+        try { return fs.readFileSync(p, 'utf8'); } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+}
+
+// Node 18 terminates the process on an unhandled promise rejection. Print
+// routes do `await qz.*` without try/catch, so a QZ Tray hiccup or bad payload
+// would otherwise CRASH the service ("the EXE closes"). Log and stay up.
+process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', (reason && reason.message) || reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[uncaughtException]', (err && err.message) || err);
+});
 
 
 const app = express();
@@ -171,7 +197,17 @@ app.post("/generic", async (req, res) => {
 
     let sectionLength = finalData.length - 4;
 
-    showLogo = printData.logoInfo.showLogo && printData.logoInfo.imageUrl != null;
+    // Prefer the embedded base64 PNG: QZ Tray (Java ImageIO) can't decode WebP,
+    // and the logo is stored/served as WebP, so the URL fails. Treat null/''/the
+    // string "null" (sent when no receipt image is configured) as "no logo" so
+    // QZ never gets (FILE)null -> "no protocol: null", which would fail the whole
+    // receipt.
+    const _b64 = printData.logoInfo.imageBase64;
+    const _url = printData.logoInfo.imageUrl;
+    const hasLogoBase64 = typeof _b64 === 'string' && _b64.length > 0;
+    const hasLogoUrl = typeof _url === 'string'
+        && _url.trim() !== '' && _url.trim().toLowerCase() !== 'null';
+    showLogo = printData.logoInfo.showLogo && (hasLogoBase64 || hasLogoUrl);
     isLogoBottom = printData.logoInfo.isBottom;
     if (showLogo) {
         logoPosition = 1
@@ -182,8 +218,8 @@ app.post("/generic", async (req, res) => {
         imagePrint = {
             type: 'raw',
             format: 'image',
-            flavor: 'file',
-            data: printData.logoInfo.imageUrl, //'https://s3.ap-south-1.amazonaws.com/qbstore/chain2024/10000_843159282_1716532886.webp',
+            flavor: hasLogoBase64 ? 'base64' : 'file',
+            data: hasLogoBase64 ? _b64 : _url,
             options: { language: "ESCPOS", dotDensity: 'double' }
         }
 
@@ -310,8 +346,8 @@ function getBarcode(code) {
 
 async function connectPrinter() {
 
-    const privateKey = fs.readFileSync('private-key.pem', 'utf8');
-    const digitalCertificate = fs.readFileSync('digital-certificate.txt', "utf8");
+    const privateKey = readAppFile('private-key.pem');
+    const digitalCertificate = readAppFile('digital-certificate.txt');
 
     qz.security.setCertificatePromise(function (resolve, reject) {
         resolve(digitalCertificate);
