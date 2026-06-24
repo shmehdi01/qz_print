@@ -12,16 +12,17 @@ a real Windows Service so it:
 This is the recommended production deployment. Replaces the "double-click the
 exe and leave the window open" workflow that merchants kept closing.
 
-## What you need (3 files, all in the same folder)
+## What you need (4 files, all in the same folder)
 
 | File | Where to get it |
 |---|---|
 | `printer.exe` | [Drive download](https://drive.google.com/file/d/1SL3wHwy9VthvHW73q1aSiYUKfCmZgF0v/view?usp=sharing) — QueueBuster QZ Tray print bridge (~48 MB) |
 | `nssm.exe` | [Drive download](https://drive.google.com/file/d/1qFMCyb3y8oMqWi-rvPegFcRi3AJP0qiV/view?usp=sharing) — Non-Sucking Service Manager 2.24 win64 (~324 KB, MIT) |
-| `install-service.bat` / `uninstall-service.bat` | this folder |
+| `install-service.bat` | [Drive download](https://drive.google.com/file/d/1bdT0xiSVEEk5wVI3VFrIhFRYKsR0CBuq/view?usp=sharing) — installs the Windows service (run as admin) |
+| `uninstall-service.bat` | [Drive download](https://drive.google.com/file/d/1vooa5VhUgkJZ6UryKcGnCifmYsWbSIKT/view?usp=sharing) — removes the service (run as admin) |
 
-Download both exes from the Drive links above. Put all four files in one
-directory on the merchant's machine, e.g. `C:\Program Files\QBPrinter\`.
+Download all four files from the Drive links above. Put them in one directory
+on the merchant's machine, e.g. `C:\Program Files\QBPrinter\`.
 
 ## Install
 
