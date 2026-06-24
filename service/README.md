@@ -16,12 +16,12 @@ exe and leave the window open" workflow that merchants kept closing.
 
 | File | Where to get it |
 |---|---|
-| `printer.exe` | from this repo (`npx pkg . --targets node18-win-x64 --output printer.exe`) |
-| `nssm.exe` | https://nssm.cc/download — pick `win64\nssm.exe` from the latest release zip (~340 KB, MIT-licensed) |
+| `printer.exe` | [Drive download](https://drive.google.com/file/d/1SL3wHwy9VthvHW73q1aSiYUKfCmZgF0v/view?usp=sharing) — QueueBuster QZ Tray print bridge (~48 MB) |
+| `nssm.exe` | [Drive download](https://drive.google.com/file/d/1qFMCyb3y8oMqWi-rvPegFcRi3AJP0qiV/view?usp=sharing) — Non-Sucking Service Manager 2.24 win64 (~324 KB, MIT) |
 | `install-service.bat` / `uninstall-service.bat` | this folder |
 
-Put all four in one directory on the merchant's machine, e.g.
-`C:\Program Files\QBPrinter\`.
+Download both exes from the Drive links above. Put all four files in one
+directory on the merchant's machine, e.g. `C:\Program Files\QBPrinter\`.
 
 ## Install
 
