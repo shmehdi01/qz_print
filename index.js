@@ -220,7 +220,14 @@ app.post("/generic", async (req, res) => {
             format: 'image',
             flavor: hasLogoBase64 ? 'base64' : 'file',
             data: hasLogoBase64 ? _b64 : _url,
-            options: { language: "ESCPOS", dotDensity: 'double' }
+            // align:'center' tells QZ Tray to pad the raster client-side so the
+            // image is centered on the paper before sending to the printer.
+            // Most cheap ESC/POS thermals (Rugtek included) honour `ESC a 1`
+            // for text but ignore it for raster bitmaps — without this option
+            // a narrower-than-paper logo prints flush left. QZ asks the printer
+            // for its width and pads accordingly, so this works for both 58mm
+            // and 80mm rolls.
+            options: { language: "ESCPOS", dotDensity: 'double', align: 'center' }
         }
 
         if (!printData.logoInfo.isBottom) {
