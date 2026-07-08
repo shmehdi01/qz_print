@@ -1,14 +1,48 @@
-const express = require('express'); 
+const express = require('express');
 const qz = require("qz-tray");
 const ws = require('ws')
 var bodyParser = require('body-parser');
 const fs = require('fs');
 var rs = require('jsrsasign');
+const path = require('path');
+
+// Read a runtime file (cert/key) robustly, trying every place it might live.
+// ORDER MATTERS — the first candidate is the fix for the standalone exe:
+//   1) path.join(__dirname, name): inside a pkg exe, __dirname is the VIRTUAL
+//      SNAPSHOT (/snapshot/...), which is where pkg `assets` are bundled. This
+//      reads a cert baked INTO the exe, so it runs self-contained.
+//      (A bare 'name' does NOT do this — relative paths resolve to cwd, not the
+//      snapshot, which is why the previous version failed with ENOENT.)
+//   2) next to the exe on disk (path.dirname(process.execPath)) — for
+//      deployments that keep the certs beside the exe.
+//   3) the current working directory.
+function readAppFile(name) {
+    const candidates = [path.join(__dirname, name)];
+    if (process.pkg) candidates.push(path.join(path.dirname(process.execPath), name));
+    candidates.push(name);
+    let lastErr;
+    for (const p of candidates) {
+        try { return fs.readFileSync(p, 'utf8'); } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+}
 
 
-const app = express(); 
+const app = express();
 app.use(bodyParser.json({limit: '50mb'}));
-app.use(bodyParser.urlencoded({ extended: false })) 
+app.use(bodyParser.urlencoded({ extended: false }))
+
+// Process-level safety net. pkg bundles Node 18, where an unhandled promise
+// rejection terminates the whole process by default. Print routes do
+// `await qz.*` / fire-and-forget qz.print without try/catch, so any QZ Tray
+// hiccup, offline printer, or malformed request would otherwise CRASH the
+// service ("the EXE closes automatically"). Log and stay up instead.
+process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', (reason && reason.message) || reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[uncaughtException]', (err && err.message) || err);
+});
 
 
 const PORT = 3000; 
@@ -22,22 +56,34 @@ app.get('/logo', (req, res) => {
     res.sendFile(__dirname + "/logo/logo.png");
 });
 
-app.get('/printers', async (req, res)=>{ 
-    var printers = await qz.printers.find();
-    res.send({"printers": printers}); 
-}); 
+app.get('/printers', async (req, res)=>{
+    try {
+        await ensureConnected();
+        var printers = await qz.printers.find();
+        res.send({"printers": printers});
+    } catch (err) {
+        // QZ Tray disconnected -> qz.printers.find() rejects with
+        // "Cannot read properties of null (reading 'sendData')". Reconnect
+        // above handles the common case; if it still fails, return an empty
+        // list with 500 instead of letting it become an unhandledRejection.
+        console.error("[/printers] failed:", (err && err.message) || err);
+        if (!res.headersSent) res.status(500).send({ printers: [], error: String((err && err.message) || err) });
+    }
+});
 
 
-app.post('/testPrint', async (req, res)=>{ 
+app.post('/testPrint', async (req, res)=>{
+  try {
     let msg = req.body.msg;
     let printerName = req.body.printerName;
+    await ensureConnected();
     let config = await qz.configs.create(printerName);
 
     console.info(req.body);
 
     await qz.print(config, [
     //'\x1B' + '\x40',
-      msg, 
+      msg,
      '\x0A',
      '\x0A',
      '\x0A',
@@ -45,10 +91,14 @@ app.post('/testPrint', async (req, res)=>{
      '\x0A',
      '\x1D' + '\x56'  + '\x00'
  ]);
-    
 
-    res.send("Wait"); 
- }); 
+
+    res.send("Wait");
+  } catch (err) {
+    console.error("[/testPrint] failed:", (err && err.message) || err);
+    if (!res.headersSent) res.status(500).send({ status: false, error: String((err && err.message) || err) });
+  }
+ });
 
 
  app.post("/generic", async (req,res) => {
@@ -69,6 +119,8 @@ app.post('/testPrint', async (req, res)=>{
     let partialCut1 = '\x1D' + '\x56'  + '\x01'; // partial cut (new syntax)
     let partialCut2 = '\x1D' + '\x56'  + '\x31'; // partial cut (new syntax)
     let paperKickOut =    '\x10' + '\x14' + '\x01' + '\x00' + '\x05';  // Generate Pulse to kick-out cash drawer**
+
+    try {
 
     let printData = req.body;
 
@@ -219,15 +271,26 @@ app.post('/testPrint', async (req, res)=>{
         finalData.insert(barcodePos++, lineBreak);
     }
 
+    await ensureConnected();
     var config = await qz.configs.create(printData.printerName);
-  
-    qz.print(config, finalData);
+
+    await qz.print(config, finalData);
 
     res.json({
         status: true,
         message: printData.printerName,
     })
-   // return res.send("ERROR" +sectionLength);
+
+    } catch (err) {
+        // Previously a QZ-disconnect / offline-printer / bad-request here threw
+        // an unhandled rejection and crashed the whole service. Log it and
+        // return HTTP 500 so the Android app surfaces a "Printer not responding"
+        // message instead of silently losing the receipt.
+        console.error("[/generic] print failed:", (err && err.message) || err);
+        if (!res.headersSent) {
+            return res.status(500).json({ status: false, error: String((err && err.message) || err) });
+        }
+    }
 
  })
 
@@ -274,8 +337,8 @@ function getBarcode(code) {
 
 async function connectPrinter() {
 
-    const privateKey = fs.readFileSync('private-key.pem', 'utf8');
-    const digitalCertificate = fs.readFileSync('digital-certificate.txt', "utf8");
+    const privateKey = readAppFile('private-key.pem');
+    const digitalCertificate = readAppFile('digital-certificate.txt');
 
    qz.security.setCertificatePromise(function (resolve, reject) {
     resolve(digitalCertificate);
@@ -310,20 +373,43 @@ async function connectPrinter() {
     await qz.websocket.connect(config);
 }
 
-
-app.listen(PORT, '0.0.0.0', async (error) =>{ 
+// Lazily (re)connect to QZ Tray. The original code connected once at startup
+// and never recovered if QZ Tray restarted or the socket dropped ("QZ Tray
+// stops working"). Call this before every print so a dropped connection
+// self-heals on the next job instead of failing forever.
+async function ensureConnected() {
+    try {
+        if (qz.websocket.isActive && qz.websocket.isActive()) return;
+    } catch (e) {
+        // isActive can throw before the first connect — fall through to connect.
+    }
     await connectPrinter();
-     if(!error) 
+}
+
+
+app.listen(PORT, '0.0.0.0', async (error) =>{
+     if(!error)
          {
-             console.log("Queuebuster || QB Printer Service Running"); 
+             console.log("Queuebuster || QB Printer Service Running");
              console.warn("Please do not close")
          }
-     
-     else
-         console.log("Error occurred, server can't start", error); 
-     } 
-     
- ); 
+
+     else {
+         console.log("Error occurred, server can't start", error);
+         return;
+     }
+     // Connect to QZ Tray, but never let a failed connect crash startup — if
+     // QZ Tray isn't running yet, the HTTP server still comes up and each
+     // print lazily (re)connects via ensureConnected().
+     try {
+         await connectPrinter();
+         console.log("Connected to QZ Tray");
+     } catch (e) {
+         console.error("Initial QZ Tray connect failed; will retry on demand:", (e && e.message) || e);
+     }
+     }
+
+ );
 
 Array.prototype.insert = function ( index, ...items ) {
     this.splice( index, 0, ...items );
